@@ -1,17 +1,12 @@
-import base64
-import os
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from openai import OpenAI
 
 from room_detector import detect_room
-from image_utils import resize_image
+from generator import generate_room
+from furniture_catalog import suggest_furniture
 
 app = Flask(__name__)
 CORS(app)
-
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 
 @app.route("/")
@@ -29,55 +24,38 @@ def detect():
 
     room = detect_room(image)
 
-    return jsonify({"room": room})
+    return jsonify({
+        "detected_room": room
+    })
 
 
 @app.route("/generate", methods=["POST"])
 def generate():
 
     if "image" not in request.files:
-        return jsonify({"error": "No image uploaded"}), 400
+        return jsonify({"error": "No image"}), 400
 
     image = request.files["image"]
 
-    room = request.form.get("room", "")
-    style = request.form.get("style", "")
-    furniture = request.form.get("furniture", "")
+    room = request.form.get("room")
+    style = request.form.get("style")
+    furniture = request.form.get("furniture")
 
-    image_bytes = resize_image(image)
+    result = generate_room(image, room, style, furniture)
 
-    base64_image = base64.b64encode(image_bytes).decode("utf-8")
+    return jsonify(result)
 
-    prompt = f"""
-    Transform this empty room into a realistic furnished {room}.
-    
-    Interior design style: {style}
-    
-    Requested furniture: {furniture}
-    
-    Requirements:
-    - realistic furniture placement
-    - correct shadows
-    - proper perspective
-    - modern interior design
-    """
 
-    try:
+@app.route("/furniture-suggestions", methods=["POST"])
+def furniture():
 
-        result = client.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="1024x1024"
-        )
+    room = request.json.get("room")
 
-        image_base64 = result.data[0].b64_json
+    suggestions = suggest_furniture(room)
 
-        return jsonify({
-            "image": image_base64
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "suggestions": suggestions
+    })
 
 
 if __name__ == "__main__":
