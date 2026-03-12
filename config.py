@@ -1,0 +1,7 @@
+import os
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+IMAGE_SIZE = "1024x1024"
+
+MAX_IMAGE_DIMENSION = 1024
